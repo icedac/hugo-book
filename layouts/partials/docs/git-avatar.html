@@ -1,0 +1,138 @@
+{{- /*
+    @example {{- partial "docs/git-avatar" (dict "username" "icedac" "service" "github") }}
+    @example {{- partial "docs/codeowners" (dict "page" . "service" "gitlab") }}
+    */}}
+    
+    {{- $imgSize := "160x160" }}
+    
+    {{- /* Define API endpoints. */}}
+    {{- $apis := dict
+      "github" (dict
+        "users" "https://api.github.com/users"
+      )
+      "gitlab" (dict
+        "users" "https://gitlab.com/api/v4/users?username="
+      )
+    }}
+    
+    {{- /* Build a slice of valid services based on the API endpoints. */}}
+    {{- $validServices := slice }}
+    {{- range $k, $_ := $apis }}
+      {{- $validServices = $validServices | append $k }}
+    {{- end }}
+    
+    {{- /* Get and validate arguments. */}}
+    {{- $username := "" }}
+    {{- $service := "" }}
+    {{- if reflect.IsMap . }}
+      {{- with .username }}
+        {{- $username = . }}
+      {{- else }}
+        {{- errorf "When passing a map to the codeowners partial, one of the elements must be named 'page', and it must be set to the context of the current page." }}
+      {{- end }}
+      {{- with .service }}
+        {{- $service = strings.ToLower . }}
+        {{- if not (in $validServices $service) }}
+          {{- errorf "The 'service' specified in the map passed to the codeowners partial is invalid. The valid options are %s." (delimit $validServices ", " " and ") }}
+        {{- end }}
+      {{- end }}
+    {{- end }}
+    
+    {{- /* Build slice of code owners. */}}
+    {{- $usernames := slice }}
+    {{- $usernames = $usernames | append $username }}
+    {{- $codeOwners := slice }}
+    {{- range $codeOwner := $usernames }}
+      {{- $type := "" }}
+      {{- $type = "user" }}
+      {{- $username := $codeOwner }}
+
+      {{- if strings.Contains $username "@" }}
+          {{- $names := split $username "@" }}
+          {{- $username = (index $names 0) }}
+      {{- end }}
+
+      {{- if strings.Contains $username "+" }}
+        {{- $names := split $username "+" }}
+        {{- $username = (index $names 1) }}
+      {{- end }}
+
+      {{- $name := $username }}
+      {{- $link := "" }}
+      {{- $img := "" }}
+      
+      {{- if eq $type "user" }}
+        {{- $slug := strings.TrimPrefix "@" $username }}
+        {{- if eq $service "github" }}
+          {{- with resources.GetRemote (printf "%s/%s" (index $apis $service "users") $slug) }}
+            {{- $u := .Content | transform.Unmarshal }}
+            {{- with $u.name }}
+              {{- $name = . }}
+            {{- end }}
+            {{- with $u.html_url }}
+              {{- $link = . }}
+            {{- end }}
+            {{- with $u.avatar_url }}
+              {{- with resources.GetRemote . }}
+                {{- $img = .Fill $imgSize }}
+              {{- end }}
+            {{- end }}
+            {{- $codeOwners = $codeOwners | append (dict "type" $type "name" $name "link" $link "img" $img) }}
+          {{- end }}
+        {{- else if eq $service "gitlab" }}
+          {{- with resources.GetRemote (printf "%s%s" (index $apis $service "users") $slug) }}
+            {{- /* GitLab returns '[]' instead of nothing. */}}
+            {{- if gt (len .Content) 2 }}
+              {{- $u := index (.Content | transform.Unmarshal) 0 }}
+              {{- with $u.name }}
+                {{- $name = . }}
+              {{- end }}
+              {{- with $u.web_url }}
+                {{- $link = . }}
+              {{- end }}
+              {{- with $u.avatar_url }}
+                {{- with resources.GetRemote . }}
+                  {{- $img = .Fill $imgSize }}
+                {{- end }}
+              {{- end }}
+              {{- $codeOwners = $codeOwners | append (dict "type" $type "name" $name "link" $link "img" $img) }}
+            {{- end }}
+          {{- end }}
+        {{- else }}
+          {{- $codeOwners = $codeOwners | append (dict "type" $type "name" $name) }}
+        {{- end }}
+      {{- else if eq $type "group" }}
+        {{- /* Uncomment to display groups. */}}
+        {{- /*  {{- $codeOwners = $codeOwners | append (dict "type" $type "name" $name) }}  */}}
+      {{- else if eq $type "email" }}
+        {{- /* Uncomment to display email addresses. */}}
+        {{- /*  {{- $codeOwners = $codeOwners | append (dict "type" $type "name" $name) }}  */}}
+      {{- end }}
+    {{- end }}
+    
+    {{- /* Render. */}}
+    {{- with $codeOwners }}
+      <div class="codeowners">
+        {{- range (sort $codeOwners "type" "desc") }}
+          {{- if .link }}
+            {{- if .img }}
+              <div class="codeowner codeowner-with-image">
+                <a href="{{ .link }}">
+                  <img src="{{ .img.RelPermalink }}" width="{{ .img.Width }}" height="{{ .img.Height }}" alt="{{ .name }}">
+                </a>
+                <a href="{{ .link }}">{{ .name }}</a>
+              </div>
+            {{- else }}
+              <div class="codeowner codeowner-with-link">
+                <a href="{{ .link }}">{{ .name }}</a>
+              </div>
+            {{- end }}
+          {{- else }}
+            <div class="codeowner">
+              {{ .name }}
+            </div>
+          {{- end }}
+        {{- end }}
+      </div>
+    {{- end -}}
+    
