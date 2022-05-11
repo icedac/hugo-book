@@ -86,8 +86,6 @@
             {{- $content = resources.GetRemote $serviceUrl $serviceHeader }}
           {{- end }}
 
-          {{- printf "%#v" $content }}
-
           {{- with $content }}
             {{- $u := .Content | transform.Unmarshal }}
             {{- with $u.name }}
