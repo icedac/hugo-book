@@ -20,11 +20,24 @@
     {{- range $k, $_ := $apis }}
       {{- $validServices = $validServices | append $k }}
     {{- end }}
+
+    {{- $apikey := "" }}
+    {{- $floating := "none" }}
+    {{- $size := "80" }}
     
     {{- /* Get and validate arguments. */}}
     {{- $username := "" }}
     {{- $service := "" }}
     {{- if reflect.IsMap . }}
+      {{- with .apikey }}
+        {{- $apikey = . }}
+      {{- end }}
+      {{- with .floating }}
+        {{- $floating = . }}
+      {{- end }}
+      {{- with .size }}
+        {{- $size = . }}
+      {{- end }}
       {{- with .username }}
         {{- $username = . }}
       {{- else }}
@@ -64,7 +77,18 @@
       {{- if eq $type "user" }}
         {{- $slug := strings.TrimPrefix "@" $username }}
         {{- if eq $service "github" }}
-          {{- with resources.GetRemote (printf "%s/%s" (index $apis $service "users") $slug) }}
+          {{- $serviceUrl := (printf "%s/%s" (index $apis $service "users") $slug) }}
+          {{- $serviceHeader := (dict "headers" (dict "Authorization" (printf "token %s" $apikey)) ) }}
+          {{- $content := "" }}
+          {{- if not $apikey }}
+            {{- $content = resources.GetRemote $serviceUrl }}
+          {{- else }}
+            {{- $content = resources.GetRemote $serviceUrl $serviceHeader }}
+          {{- end }}
+
+          {{- printf "%#v" $content }}
+
+          {{- with $content }}
             {{- $u := .Content | transform.Unmarshal }}
             {{- with $u.name }}
               {{- $name = . }}
@@ -112,7 +136,7 @@
     
     {{- /* Render. */}}
     {{- with $codeOwners }}
-      <div class="codeowners">
+      <div class="codeowners" style="float: {{ $floating }};">
         {{- range (sort $codeOwners "type" "desc") }}
           {{- if .link }}
             {{- if .img }}

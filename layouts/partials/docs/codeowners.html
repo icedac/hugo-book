@@ -20,7 +20,7 @@ authentication, and that seems like a lot of effort/hassle for a small return.
 @param service {string} The service with which to resolve the CODEOWNERS data.
 
 @example {{- partial "codeowners.html" . }}
-@example {{- partial "codeowners.html" (dict "page" .) }}
+@example {{- partial "codeowners.html" (dict "page" . "apikey" .Params.GithubApiKey ) }}
 @example {{- partial "codeowners.html" (dict "page" . "service" "github") }}
 @example {{- partial "codeowners.html" (dict "page" . "service" "gitlab") }}
 */}}
@@ -43,10 +43,15 @@ authentication, and that seems like a lot of effort/hassle for a small return.
   {{- $validServices = $validServices | append $k }}
 {{- end }}
 
+{{- $apikey := "" }}
+
 {{- /* Get and validate arguments. */}}
 {{- $page := . }}
 {{- $service := "" }}
 {{- if reflect.IsMap . }}
+  {{- with .apikey }}
+    {{- $apikey = . }}
+  {{- end }}
   {{- with .page }}
     {{- $page = . }}
   {{- else }}
@@ -79,7 +84,16 @@ authentication, and that seems like a lot of effort/hassle for a small return.
   {{- if eq $type "user" }}
     {{- $slug := strings.TrimPrefix "@" $codeOwner }}
     {{- if eq $service "github" }}
-      {{- with resources.GetRemote (printf "%s/%s" (index $apis $service "users") $slug) }}
+      {{- $serviceUrl := (printf "%s/%s" (index $apis $service "users") $slug) }}
+      {{- $serviceHeader := (dict "headers" (dict "Authorization" (printf "token %s" $apikey)) ) }}
+      {{- $content := "" }}
+      {{- if not $apikey }}
+        {{- $content = resources.GetRemote $serviceUrl }}
+      {{- else }}
+        {{- $content = resources.GetRemote $serviceUrl $serviceHeader }}
+      {{- end }}
+
+      {{- with $content }}
         {{- $u := .Content | transform.Unmarshal }}
         {{- with $u.name }}
           {{- $name = . }}
