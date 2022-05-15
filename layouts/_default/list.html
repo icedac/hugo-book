@@ -1,1 +1,10 @@
-{{ define "dummy" }}{{ end }}
+{{ define "main" }}
+    <article class="markdown">
+        {{- .Content -}}
+    </article>
+    {{ if .Param "showSubpage" }}
+    <article class="markdown">
+        {{ partial "list.html" . }}
+    </article>
+    {{ end }}
+{{ end }}

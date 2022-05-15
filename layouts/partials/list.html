@@ -1,0 +1,16 @@
+{{ if $.Paginator.Pages }}
+<hr/>
+<h3>하위 페이지</h3>
+
+<ul>
+{{ range $index, $element := $.Paginator.Pages }}
+<li>
+    <a href="{{ .Permalink }}">
+            {{ .Title }}
+	{{with .Params.subtitle }}
+            {{ . }}
+	{{ end }}
+</li>
+{{ end }}
+</ul>
+{{ end }}
