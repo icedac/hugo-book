@@ -12,3 +12,6 @@
 
 - id: bookSearchConfig
   translation: '{ cache: true }'
+
+- id: Slack this page
+  translation: Slack this page
